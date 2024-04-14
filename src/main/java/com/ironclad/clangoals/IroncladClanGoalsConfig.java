@@ -8,12 +8,24 @@ import net.runelite.client.config.ConfigItem;
 public interface IroncladClanGoalsConfig extends Config
 {
 	@ConfigItem(
-		keyName = "greeting",
-		name = "Welcome Greeting",
-		description = "The message to show to the user when they login"
+			keyName = "apiKey",
+			name = "API Key",
+			description = "The API key used to authenticate with IronClad's API",
+			position = 1
 	)
-	default String greeting()
+	default String apiKey()
 	{
-		return "Hello";
+		return "";
+	}
+
+	@ConfigItem(
+			keyName = "autoJoin",
+			name = "Auto Join",
+			description = "Automatically join any in-progress goals",
+			position = 2
+	)
+	default boolean autoJoin()
+	{
+		return true;
 	}
 }
