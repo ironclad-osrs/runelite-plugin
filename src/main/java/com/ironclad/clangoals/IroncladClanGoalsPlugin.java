@@ -20,6 +20,7 @@ import net.runelite.client.ui.ClientToolbar;
 
 import javax.inject.Inject;
 import java.util.HashMap;
+import java.util.Objects;
 
 @Slf4j
 @PluginDescriptor(
@@ -110,7 +111,7 @@ public class IroncladClanGoalsPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (event.getGroup() != "ironcladclangoals") {
+		if (!Objects.equals(event.getGroup(), "ironcladclangoals")) {
 			return;
 		}
 
@@ -119,8 +120,8 @@ public class IroncladClanGoalsPlugin extends Plugin
 
 		// If the API key changes then attempt
 		// to authenticate with the API again.
-		if (key == "apiKey" && !newValue.isEmpty()) {
-			service = new ApiService(config.apiKey());
+		if (Objects.equals(key, "apiKey") && !newValue.isEmpty()) {
+			service = new ApiService(newValue);
 		}
 	}
 
