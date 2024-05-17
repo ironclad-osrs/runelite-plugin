@@ -1,6 +1,7 @@
 package com.ironclad.clangoals.service;
 
 import com.google.gson.JsonObject;
+import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,40 +10,38 @@ import net.runelite.api.Skill;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.util.concurrent.CompletableFuture;
 
 public class ApiService
 {
     private static final Logger log = LoggerFactory.getLogger(ApiService.class);
+
+    private final OkHttpClient httpClient;
     private final String apiKey;
 
     public boolean verified = false;
 
-    public ApiService (String apiKey)
+    public ApiService (OkHttpClient httpClient, String apiKey)
     {
+        this.httpClient = httpClient;
         this.apiKey = apiKey;
 
-        verified = ApiResponse.isOk(me());
+        verified = me().isSuccessful();
     }
 
     /**
      * Check that the current API key is valid.
      */
-    public HttpResponse<String> me ()
+    public Response me ()
     {
         try {
-            HttpRequest req = sharedRequest(makeUri("/me"))
-                .GET()
+            Request req = sharedRequest(makeUri("/me"))
+                .get()
                 .build();
 
-            log.info("[ironclad-clan-goals] send get self request");
+            log.debug("[ironclad-clan-goals] send get self request");
 
-            return sharedClient()
-                .send(req, HttpResponse.BodyHandlers.ofString());
-        } catch (IOException | InterruptedException e) {
+            return httpClient.newCall(req).execute();
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
@@ -51,33 +50,49 @@ public class ApiService
      * Persist the account has with the current player name
      * against the authenticated API key.
      */
-    public HttpResponse<Void> updatePlayer (long account, Player player)
+    public void updatePlayer (long account, Player player)
     {
-        try {
-            JsonObject data = new JsonObject();
+        JsonObject data = new JsonObject();
 
-            data.addProperty("account_hash", account);
-            data.addProperty("character_name", player.getName());
+        data.addProperty("account_hash", account);
+        data.addProperty("character_name", player.getName());
 
-            HttpRequest req = sharedRequest(makeUri("/characters"))
-                .PUT(HttpRequest.BodyPublishers.ofString(data.toString()))
+        RequestBody body = RequestBody.create(
+                MediaType.parse("application/json"), data.toString()
+        );
+
+        Request req = sharedRequest(makeUri("/characters"))
+                .put(body)
                 .build();
 
-            log.info("[ironclad-clan-goals] send update character request");
+        log.debug("[ironclad-clan-goals] send update character request");
 
-            return sharedClient()
-                .send(req, HttpResponse.BodyHandlers.discarding());
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        sharedClient().newCall(req).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                log.warn(
+                    "[ironclad-clan-goals] error updating character {}:{}",
+                    account, player.getName(), e
+                );
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                response.close();
+
+                log.debug(
+                    "[ironclad-clan-goals] character updated {}:{}",
+                    account, player.getName()
+                );
+            }
+        });
     }
 
     /**
      * Persist the xp against an account and skill for the
      * authenticated API key.
      */
-    public CompletableFuture
-            <HttpResponse<Void>> updateXp (long account, Skill skill, int xp)
+    public void updateXp (long account, Skill skill, int xp)
     {
         JsonObject data = new JsonObject();
 
@@ -85,36 +100,57 @@ public class ApiService
         data.addProperty("skill", skill.getName().toLowerCase());
         data.addProperty("xp", xp);
 
-        HttpRequest req = sharedRequest(makeUri("/xp"))
-            .PUT(HttpRequest.BodyPublishers.ofString(data.toString()))
-            .build();
+        RequestBody body = RequestBody.create(
+                MediaType.parse("application/json"), data.toString()
+        );
 
-        log.info("[ironclad-clan-goals] send update xp request");
+        Request req = sharedRequest(makeUri("/xp"))
+                .put(body)
+                .build();
 
-        return sharedClient()
-            .sendAsync(req, HttpResponse.BodyHandlers.discarding());
+        log.debug("[ironclad-clan-goals] send update xp request");
+
+        sharedClient().newCall(req).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                log.warn(
+                    "[ironclad-clan-goals] error updating xp {}",
+                    account, e
+                );
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                response.close();
+
+                log.debug(
+                    "[ironclad-clan-goals] xp updated {}",
+                    account
+                );
+            }
+        });
     }
 
     /**
      * Shared request headers for all requests.
      */
-    private HttpRequest.Builder sharedRequest(URI uri)
+    private Request.Builder sharedRequest(URI uri)
     {
-        return HttpRequest
-            .newBuilder(uri)
+        return new Request
+            .Builder()
+            .url(uri.toString())
             .header("accept", "application/json")
             .header("content-type", "application/json")
             .header("authorization", apiKey);
     }
 
     /**
-     * Shared response parse for all requests.
+     * Shared http client for all requests.
      */
-    private HttpClient sharedClient()
+    private OkHttpClient sharedClient()
     {
-        return HttpClient
+        return httpClient
             .newBuilder()
-            .version(HttpClient.Version.HTTP_1_1)
             .build();
     }
 

@@ -2,6 +2,7 @@ package com.ironclad.clangoals;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
 
 import com.ironclad.clangoals.service.ApiService;
 
@@ -29,6 +30,9 @@ import java.util.Objects;
 public class IroncladClanGoalsPlugin extends Plugin
 {
 	@Inject
+	private OkHttpClient httpClient;
+
+	@Inject
 	private Client client;
 
 	@Inject
@@ -48,7 +52,7 @@ public class IroncladClanGoalsPlugin extends Plugin
 	{
 		// If API key is set then attempt to validated.
 		if (!config.apiKey().isEmpty()) {
-			service = new ApiService(config.apiKey());
+			service = new ApiService(httpClient, config.apiKey());
 		}
 	}
 
@@ -121,7 +125,7 @@ public class IroncladClanGoalsPlugin extends Plugin
 		// If the API key changes then attempt
 		// to authenticate with the API again.
 		if (Objects.equals(key, "apiKey") && !newValue.isEmpty()) {
-			service = new ApiService(newValue);
+			service = new ApiService(httpClient, newValue);
 		}
 	}
 
