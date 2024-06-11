@@ -1,11 +1,14 @@
 package com.ironclad.clangoals;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 
 import com.ironclad.clangoals.service.ApiService;
 
+import net.runelite.api.clan.ClanSettings;
+import net.runelite.client.events.PlayerLootReceived;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
@@ -22,6 +25,7 @@ import net.runelite.client.ui.ClientToolbar;
 import javax.inject.Inject;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.Set;
 
 @Slf4j
 @PluginDescriptor(
@@ -98,6 +102,12 @@ public class IroncladClanGoalsPlugin extends Plugin
 		final String skill = event.getSkill().getName();
 		final int xp = event.getXp();
 
+		if (!ClanUtils.isMemberOfClan(client)) {
+			log.warn("Attempted to log xp when not a clan member.");
+
+			return;
+		}
+
 		// We don't want to log skills straightaway
 		// as we get flooded with current xp on login.
 		if (xpMap.containsKey(skill)) {
@@ -134,4 +144,5 @@ public class IroncladClanGoalsPlugin extends Plugin
 	{
 		return configManager.getConfig(IroncladClanGoalsConfig.class);
 	}
+
 }
