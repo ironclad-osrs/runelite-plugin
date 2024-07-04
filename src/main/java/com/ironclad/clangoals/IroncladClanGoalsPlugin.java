@@ -121,6 +121,11 @@ public class IroncladClanGoalsPlugin extends Plugin
 			// as we get flooded with current xp on login.
 			if (xpMap.containsKey(skill)) {
 
+				// Exit early if XP hasn't actually changed.
+				if (xpMap.get(skill).equals(xp)) {
+					return;
+				}
+
 				// If the API key is valid, and auto-join is enabled
 				// then we begin to log xp after initial xp change.
 				if (service.verified && config.autoJoin()) {
