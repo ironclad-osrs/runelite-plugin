@@ -1,6 +1,8 @@
 package com.ironclad.clangoals.service;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.runelite.api.events.StatChanged;
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +12,7 @@ import net.runelite.api.Skill;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 
 public class ApiService
 {
@@ -25,7 +28,9 @@ public class ApiService
         this.httpClient = httpClient;
         this.apiKey = apiKey;
 
-        verified = me().isSuccessful();
+        Response tmp = me();
+        verified = tmp.isSuccessful();
+        tmp.close();
     }
 
     /**
@@ -123,10 +128,54 @@ public class ApiService
             public void onResponse(Call call, Response response) throws IOException {
                 response.close();
 
-                log.debug(
-                    "[ironclad-clan-goals] xp updated {}",
-                    account
+                log.debug("[ironclad-clan-goals] xp updated {}", account);
+            }
+        });
+    }
+
+    public void batchUpdateXp(long account, ArrayList<QueueItem> batch)
+    {
+        JsonArray skills = new JsonArray();
+
+        batch.forEach(item -> {
+            StatChanged event = (StatChanged) item.getData();
+
+            JsonObject tmp = new JsonObject();
+            tmp.addProperty("skill", event.getSkill().getName().toLowerCase());
+            tmp.addProperty("xp", event.getXp());
+
+            skills.add(tmp);
+        });
+
+        JsonObject data = new JsonObject();
+
+        data.addProperty("account_hash", account);
+        data.add("batch", skills);
+
+        RequestBody body = RequestBody.create(
+                MediaType.parse("application/json"), data.toString()
+        );
+
+        Request req = sharedRequest(makeUri("/batch/xp"))
+                .put(body)
+                .build();
+
+        log.debug("[ironclad-clan-goals] send batch update xp request");
+
+        sharedClient().newCall(req).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                log.warn(
+                        "[ironclad-clan-goals] error updating xp {}",
+                        account, e
                 );
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                response.close();
+
+                log.debug("[ironclad-clan-goals] batch xp updated {}", account);
             }
         });
     }
@@ -159,6 +208,7 @@ public class ApiService
      */
     private URI makeUri (String path)
     {
-        return URI.create("https://progress.quest/api/runelite"+path);
+        return URI.create("http://localhost:3000/api/runelite"+path);
+//        return URI.create("https://progress.quest/api/runelite"+path);
     }
 }

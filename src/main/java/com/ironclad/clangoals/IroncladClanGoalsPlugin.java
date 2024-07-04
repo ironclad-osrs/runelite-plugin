@@ -1,14 +1,13 @@
 package com.ironclad.clangoals;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
+import com.ironclad.clangoals.service.QueueItem;
+import com.ironclad.clangoals.service.XpBatchQueue;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 
 import com.ironclad.clangoals.service.ApiService;
 
-import net.runelite.api.clan.ClanSettings;
-import net.runelite.client.events.PlayerLootReceived;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
@@ -25,7 +24,6 @@ import net.runelite.client.ui.ClientToolbar;
 import javax.inject.Inject;
 import java.util.HashMap;
 import java.util.Objects;
-import java.util.Set;
 
 @Slf4j
 @PluginDescriptor(
@@ -46,6 +44,7 @@ public class IroncladClanGoalsPlugin extends Plugin
 	private IroncladClanGoalsConfig config;
 
 	public ApiService service;
+	protected XpBatchQueue xpBatchQueue;
 
 	private boolean getLocalPlayer = false;
 
@@ -57,6 +56,9 @@ public class IroncladClanGoalsPlugin extends Plugin
 		// If API key is set then attempt to validated.
 		if (!config.apiKey().isEmpty()) {
 			service = new ApiService(httpClient, config.apiKey());
+
+			xpBatchQueue = new XpBatchQueue();
+			xpBatchQueue.setApi(service);
 		}
 	}
 
@@ -72,6 +74,9 @@ public class IroncladClanGoalsPlugin extends Plugin
 			case LOGGING_IN:
 			case LOGIN_SCREEN_AUTHENTICATOR:
 				xpMap.clear();
+				xpBatchQueue.flush();
+			case CONNECTION_LOST:
+				xpBatchQueue.flush();
 		}
 
 		if (state == GameState.LOGGED_IN)
@@ -92,8 +97,14 @@ public class IroncladClanGoalsPlugin extends Plugin
 			// contribute to the clan goal.
 			service.updatePlayer(client.getAccountHash(), player);
 
+			// Keep batch queues up to date with the
+			// active account hash.
+			xpBatchQueue.setAccount(client.getAccountHash());
+
 			getLocalPlayer = false;
 		}
+
+		xpBatchQueue.incrementCooldown();
 	}
 
 	@Subscribe
@@ -104,18 +115,17 @@ public class IroncladClanGoalsPlugin extends Plugin
 
 		if (!ClanUtils.isMemberOfClan(client)) {
 			log.warn("Attempted to log xp when not a clan member.");
+		} else {
 
-			return;
-		}
+			// We don't want to log skills straightaway
+			// as we get flooded with current xp on login.
+			if (xpMap.containsKey(skill)) {
 
-		// We don't want to log skills straightaway
-		// as we get flooded with current xp on login.
-		if (xpMap.containsKey(skill)) {
-
-			// If the API key is valid, and auto-join is enabled
-			// then we begin to log xp after initial xp change.
-			if (service.verified && config.autoJoin()) {
-				service.updateXp(client.getAccountHash(), event.getSkill(), xp);
+				// If the API key is valid, and auto-join is enabled
+				// then we begin to log xp after initial xp change.
+				if (service.verified && config.autoJoin()) {
+					xpBatchQueue.addItem(new QueueItem(event));
+				}
 			}
 		}
 
@@ -136,6 +146,7 @@ public class IroncladClanGoalsPlugin extends Plugin
 		// to authenticate with the API again.
 		if (Objects.equals(key, "apiKey") && !newValue.isEmpty()) {
 			service = new ApiService(httpClient, newValue);
+			xpBatchQueue.setApi(service);
 		}
 	}
 
