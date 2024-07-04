@@ -1,12 +1,15 @@
 package com.ironclad.clangoals;
 
 import com.google.inject.Provides;
-import com.ironclad.clangoals.service.QueueItem;
-import com.ironclad.clangoals.service.XpBatchQueue;
+import com.ironclad.clangoals.batches.KillBatchQueue;
+import com.ironclad.clangoals.batches.LootBatchQueue;
+import com.ironclad.clangoals.batches.QueueItem;
+import com.ironclad.clangoals.batches.XpBatchQueue;
+import com.ironclad.clangoals.service.*;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.events.NpcLootReceived;
+import net.runelite.client.game.ItemManager;
 import okhttp3.OkHttpClient;
-
-import com.ironclad.clangoals.service.ApiService;
 
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -38,6 +41,9 @@ public class IroncladClanGoalsPlugin extends Plugin
 	private Client client;
 
 	@Inject
+	private ItemManager itemManager;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	@Inject
@@ -45,10 +51,12 @@ public class IroncladClanGoalsPlugin extends Plugin
 
 	public ApiService service;
 	protected XpBatchQueue xpBatchQueue;
+	protected KillBatchQueue killBatchQueue;
+	protected LootBatchQueue lootBatchQueue;
 
 	private boolean getLocalPlayer = false;
 
-	private final HashMap<String, Number> xpMap = new HashMap<String, Number>();
+	private final HashMap<String, Number> xpMap = new HashMap<>();
 
 	@Override
 	protected void startUp() throws Exception
@@ -59,6 +67,13 @@ public class IroncladClanGoalsPlugin extends Plugin
 
 			xpBatchQueue = new XpBatchQueue();
 			xpBatchQueue.setApi(service);
+
+			killBatchQueue = new KillBatchQueue();
+			killBatchQueue.setApi(service);
+
+			lootBatchQueue = new LootBatchQueue();
+			lootBatchQueue.setApi(service);
+			lootBatchQueue.setItemManager(itemManager);
 		}
 	}
 
@@ -75,8 +90,12 @@ public class IroncladClanGoalsPlugin extends Plugin
 			case LOGIN_SCREEN_AUTHENTICATOR:
 				xpMap.clear();
 				xpBatchQueue.flush();
+				lootBatchQueue.flush();
+				killBatchQueue.flush();
 			case CONNECTION_LOST:
 				xpBatchQueue.flush();
+				lootBatchQueue.flush();
+				killBatchQueue.flush();
 		}
 
 		if (state == GameState.LOGGED_IN)
@@ -100,11 +119,15 @@ public class IroncladClanGoalsPlugin extends Plugin
 			// Keep batch queues up to date with the
 			// active account hash.
 			xpBatchQueue.setAccount(client.getAccountHash());
+			lootBatchQueue.setAccount(client.getAccountHash());
+			killBatchQueue.setAccount(client.getAccountHash());
 
 			getLocalPlayer = false;
 		}
 
 		xpBatchQueue.incrementCooldown();
+		lootBatchQueue.incrementCooldown();
+		killBatchQueue.incrementCooldown();
 	}
 
 	@Subscribe
@@ -138,6 +161,33 @@ public class IroncladClanGoalsPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onNpcLootReceived(NpcLootReceived npcLootReceived)
+	{
+//		if (!ClanUtils.isMemberOfClan(client)) {
+//			log.warn("Attempted to log npc kill when not a clan member.");
+//			return;
+//		}
+
+		if (service.verified && config.autoJoin()) {
+
+			// Check that at least one item was dropped from the NPC.
+			if (!npcLootReceived.getItems().isEmpty()) {
+
+				// Check that player is not within a restricted region.
+				if (
+						!WorldUtils.isPlayerWithinMapRegion(client, WorldUtils.LAST_MAN_STANDING_REGIONS) &&
+						!WorldUtils.isPlayerWithinMapRegion(client, WorldUtils.SOUL_WARS_REGIONS)
+				) {
+					lootBatchQueue.addItem(new QueueItem(npcLootReceived));
+				}
+			}
+
+			// Always track NPC kills.
+			killBatchQueue.addItem(new QueueItem(npcLootReceived));
+		}
+	}
+
+	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
 		if (!Objects.equals(event.getGroup(), "ironcladclangoals")) {
@@ -152,6 +202,8 @@ public class IroncladClanGoalsPlugin extends Plugin
 		if (Objects.equals(key, "apiKey") && !newValue.isEmpty()) {
 			service = new ApiService(httpClient, newValue);
 			xpBatchQueue.setApi(service);
+			killBatchQueue.setApi(service);
+			lootBatchQueue.setApi(service);
 		}
 	}
 

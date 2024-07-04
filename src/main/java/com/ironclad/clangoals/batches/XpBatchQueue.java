@@ -1,5 +1,6 @@
-package com.ironclad.clangoals.service;
+package com.ironclad.clangoals.batches;
 
+import com.ironclad.clangoals.service.ApiService;
 import lombok.Setter;
 
 @Setter
