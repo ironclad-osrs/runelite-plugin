@@ -208,7 +208,6 @@ public class ApiService
      */
     private URI makeUri (String path)
     {
-        return URI.create("http://localhost:3000/api/runelite"+path);
-//        return URI.create("https://progress.quest/api/runelite"+path);
+        return URI.create("https://progress.quest/api/runelite"+path);
     }
 }
