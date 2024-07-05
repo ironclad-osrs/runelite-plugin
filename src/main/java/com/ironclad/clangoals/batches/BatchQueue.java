@@ -1,5 +1,6 @@
-package com.ironclad.clangoals.service;
+package com.ironclad.clangoals.batches;
 
+import com.ironclad.clangoals.service.ApiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,11 +23,11 @@ public abstract class BatchQueue
     // 15*0.6=9
     private final int TICK_COOLDOWN = 9;
 
-    // Array of items to be batched together.
-    protected final ArrayList<QueueItem> items;
-
     // How many ticks since last item.
     private int sinceLastItem = 0;
+
+    // Array of items to be batched together.
+    protected final ArrayList<QueueItem> items;
 
     public BatchQueue ()
     {

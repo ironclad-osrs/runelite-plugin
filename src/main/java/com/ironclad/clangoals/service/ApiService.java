@@ -2,13 +2,17 @@ package com.ironclad.clangoals.service;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import net.runelite.api.events.StatChanged;
+import com.ironclad.clangoals.PluginItem;
+import com.ironclad.clangoals.PluginNPC;
+import com.ironclad.clangoals.batches.QueueItem;
+import lombok.NonNull;
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.runelite.api.NPC;
+import net.runelite.api.events.StatChanged;
 import net.runelite.api.Player;
-import net.runelite.api.Skill;
 
 import java.io.IOException;
 import java.net.URI;
@@ -72,67 +76,15 @@ public class ApiService
 
         log.debug("[ironclad-clan-goals] send update character request");
 
-        sharedClient().newCall(req).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                log.warn(
-                    "[ironclad-clan-goals] error updating character {}:{}",
-                    account, player.getName(), e
-                );
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                response.close();
-
-                log.debug(
-                    "[ironclad-clan-goals] character updated {}:{}",
-                    account, player.getName()
-                );
-            }
-        });
+        sharedClient().newCall(req).enqueue(sharedCallback(
+                "character updated",
+                "error updating character"
+        ));
     }
 
     /**
-     * Persist the xp against an account and skill for the
-     * authenticated API key.
+     * Persist a batch of xp drops.
      */
-    public void updateXp (long account, Skill skill, int xp)
-    {
-        JsonObject data = new JsonObject();
-
-        data.addProperty("account_hash", account);
-        data.addProperty("skill", skill.getName().toLowerCase());
-        data.addProperty("xp", xp);
-
-        RequestBody body = RequestBody.create(
-                MediaType.parse("application/json"), data.toString()
-        );
-
-        Request req = sharedRequest(makeUri("/xp"))
-                .put(body)
-                .build();
-
-        log.debug("[ironclad-clan-goals] send update xp request");
-
-        sharedClient().newCall(req).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                log.warn(
-                    "[ironclad-clan-goals] error updating xp {}",
-                    account, e
-                );
-            }
-
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                response.close();
-
-                log.debug("[ironclad-clan-goals] xp updated {}", account);
-            }
-        });
-    }
-
     public void batchUpdateXp(long account, ArrayList<QueueItem> batch)
     {
         JsonArray skills = new JsonArray();
@@ -162,22 +114,87 @@ public class ApiService
 
         log.debug("[ironclad-clan-goals] send batch update xp request");
 
-        sharedClient().newCall(req).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                log.warn(
-                        "[ironclad-clan-goals] error updating xp {}",
-                        account, e
-                );
-            }
+        sharedClient().newCall(req).enqueue(sharedCallback(
+                "batch xp updated",
+                "error updating xp"
+        ));
+    }
 
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                response.close();
+    /**
+     * Persist a batch of loot drops.
+     */
+    public void batchUpdateLoot(long account, ArrayList<QueueItem> batch)
+    {
+        JsonArray loot = new JsonArray();
 
-                log.debug("[ironclad-clan-goals] batch xp updated {}", account);
-            }
+        batch.forEach(item -> {
+            PluginItem event = (PluginItem) item.getData();
+
+            JsonObject tmp = new JsonObject();
+            tmp.addProperty("item_id", event.getId());
+            tmp.addProperty("quantity", event.getQuantity());
+            tmp.addProperty("name", event.getName());
+
+            loot.add(tmp);
         });
+
+        JsonObject data = new JsonObject();
+
+        data.addProperty("account_hash", account);
+        data.add("batch", loot);
+
+        RequestBody body = RequestBody.create(
+                MediaType.parse("application/json"), data.toString()
+        );
+
+        Request req = sharedRequest(makeUri("/batch/loot"))
+                .put(body)
+                .build();
+
+        log.debug("[ironclad-clan-goals] send batch update loot request");
+
+        sharedClient().newCall(req).enqueue(sharedCallback(
+                "batch loot updated",
+                "error updating loot"
+        ));
+    }
+
+    /**
+     * Persist a batch of kill records.
+     */
+    public void batchUpdateKills(long account, ArrayList<QueueItem> batch)
+    {
+        JsonArray kills = new JsonArray();
+
+        batch.forEach(item -> {
+            PluginNPC event = (PluginNPC) item.getData();
+
+            JsonObject tmp = new JsonObject();
+            tmp.addProperty("npc_id", event.getId());
+            tmp.addProperty("name", event.getName());
+
+            kills.add(tmp);
+        });
+
+        JsonObject data = new JsonObject();
+
+        data.addProperty("account_hash", account);
+        data.add("batch", kills);
+
+        RequestBody body = RequestBody.create(
+                MediaType.parse("application/json"), data.toString()
+        );
+
+        Request req = sharedRequest(makeUri("/batch/kills"))
+                .put(body)
+                .build();
+
+        log.debug("[ironclad-clan-goals] send batch update kills request");
+
+        sharedClient().newCall(req).enqueue(sharedCallback(
+                "batch kills updated",
+                "error updating kills"
+        ));
     }
 
     /**
@@ -201,6 +218,36 @@ public class ApiService
         return httpClient
             .newBuilder()
             .build();
+    }
+
+    /**
+     * Shared client callback.
+     */
+    private Callback sharedCallback(String successMessage, String errorMessage)
+    {
+        return new Callback() {
+            @Override
+            public void onFailure(
+                    @NonNull
+                    Call call,
+                    @NonNull
+                    IOException e
+            ) {
+                log.warn("[ironclad-clan-goals] "+errorMessage);
+            }
+
+            @Override
+            public void onResponse(
+                    @NonNull
+                    Call call,
+                    @NonNull
+                    Response response
+            ) throws IOException {
+                response.close();
+
+                log.debug("[ironclad-clan-goals] "+successMessage);
+            }
+        };
     }
 
     /**

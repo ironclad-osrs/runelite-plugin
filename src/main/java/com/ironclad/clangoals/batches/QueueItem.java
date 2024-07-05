@@ -1,4 +1,4 @@
-package com.ironclad.clangoals.service;
+package com.ironclad.clangoals.batches;
 
 import lombok.Getter;
 
