@@ -2,10 +2,10 @@ package com.ironclad.clangoals.service;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.ironclad.clangoals.Item;
+import com.ironclad.clangoals.PluginItem;
+import com.ironclad.clangoals.PluginNPC;
 import com.ironclad.clangoals.batches.QueueItem;
 import lombok.NonNull;
-import net.runelite.api.NPCComposition;
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,11 +128,11 @@ public class ApiService
         JsonArray loot = new JsonArray();
 
         batch.forEach(item -> {
-            Item event = (Item) item.getData();
+            PluginItem event = (PluginItem) item.getData();
 
             JsonObject tmp = new JsonObject();
-            tmp.addProperty("item_id", event.id);
-            tmp.addProperty("quantity", event.quantity);
+            tmp.addProperty("item_id", event.getId());
+            tmp.addProperty("quantity", event.getQuantity());
             tmp.addProperty("name", event.getName());
 
             loot.add(tmp);
@@ -157,8 +157,6 @@ public class ApiService
                 "batch loot updated",
                 "error updating loot"
         ));
-
-        log.info(data.toString());
     }
 
     /**
@@ -169,7 +167,7 @@ public class ApiService
         JsonArray kills = new JsonArray();
 
         batch.forEach(item -> {
-            NPC event = (NPC) item.getData();
+            PluginNPC event = (PluginNPC) item.getData();
 
             JsonObject tmp = new JsonObject();
             tmp.addProperty("npc_id", event.getId());
@@ -197,8 +195,6 @@ public class ApiService
                 "batch kills updated",
                 "error updating kills"
         ));
-
-        log.info(data.toString());
     }
 
     /**
@@ -259,6 +255,6 @@ public class ApiService
      */
     private URI makeUri (String path)
     {
-        return URI.create("http://localhost:3000/api/runelite"+path);
+        return URI.create("https://progress.quest/api/runelite"+path);
     }
 }

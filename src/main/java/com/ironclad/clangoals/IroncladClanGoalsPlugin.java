@@ -7,6 +7,7 @@ import com.ironclad.clangoals.batches.QueueItem;
 import com.ironclad.clangoals.batches.XpBatchQueue;
 import com.ironclad.clangoals.service.*;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.NPC;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.game.ItemManager;
 import okhttp3.OkHttpClient;
@@ -163,10 +164,10 @@ public class IroncladClanGoalsPlugin extends Plugin
 	@Subscribe
 	public void onNpcLootReceived(NpcLootReceived npcLootReceived)
 	{
-//		if (!ClanUtils.isMemberOfClan(client)) {
-//			log.warn("Attempted to log npc kill when not a clan member.");
-//			return;
-//		}
+		if (!ClanUtils.isMemberOfClan(client)) {
+			log.warn("Attempted to log npc kill when not a clan member.");
+			return;
+		}
 
 		if (service.verified && config.autoJoin()) {
 
@@ -183,7 +184,7 @@ public class IroncladClanGoalsPlugin extends Plugin
 			}
 
 			// Always track NPC kills.
-			killBatchQueue.addItem(new QueueItem(npcLootReceived));
+			killBatchQueue.addItem(new QueueItem(new PluginNPC(npcLootReceived.getNpc())));
 		}
 	}
 

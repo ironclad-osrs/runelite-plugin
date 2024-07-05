@@ -1,17 +1,19 @@
 package com.ironclad.clangoals;
 
+import lombok.Getter;
 import lombok.Setter;
 import net.runelite.client.game.ItemManager;
 
 @Setter
-public class Item
+@Getter
+public class PluginItem
 {
     private ItemManager itemManager;
 
     public int id;
     public int quantity;
 
-    public Item(int id, int quantity)
+    public PluginItem(int id, int quantity)
     {
         this.id = id;
         this.quantity = quantity;

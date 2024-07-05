@@ -1,13 +1,12 @@
 package com.ironclad.clangoals.batches;
 
-import com.ironclad.clangoals.Item;
+import com.ironclad.clangoals.PluginItem;
 import com.ironclad.clangoals.service.ApiService;
 import lombok.Setter;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
 
-import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.*;
@@ -31,13 +30,13 @@ public class LootBatchQueue extends BatchQueue
             Collection<ItemStack> items = npcLootReceived.getItems();
 
             return items.stream().map(i -> {
-                Item item = new Item(i.getId(), i.getQuantity());
+                PluginItem pluginItem = new PluginItem(i.getId(), i.getQuantity());
 
                 // Pass down the ItemManager so that we
                 // can gather the item name.
-                item.setItemManager(itemManager);
+                pluginItem.setItemManager(itemManager);
 
-                return new QueueItem(item);
+                return new QueueItem(pluginItem);
             });
         }).collect(Collectors.toCollection(ArrayList::new));
 
