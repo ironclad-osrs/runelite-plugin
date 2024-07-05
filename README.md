@@ -4,10 +4,11 @@ A tracker to allow participants to contribute towards Ironclad clan goals.
 Looking to join? Checkout our [Discord Server](https://discord.gg/gZRxMMjP).
 
 ## What is tracked?
-1. The account hash (unique identifier) and character name of the active account
-   2. Why? We discourage the use of non-ironman alt accounts so this is used to remove any contributions towards a goal for those accounts.
-2. Whenever experience is gained: what skill and new total experience in that skill
-   3. Why? 'Cause that's the whole point of the plugin – tracking experience towards a shared goal.
+
+1. XP gains
+2. Loot drops
+3. NPC kills
+4. Characters which used an API key
 
 ## Found a bug?
 
